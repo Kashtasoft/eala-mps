@@ -104,11 +104,11 @@
   </header>
 
   <main class="container py-4">
-    <!-- Shown when the folder can't be read automatically (e.g. opened by double-click) -->
+    <!-- Shown when the photo manifest can't be loaded (e.g. opened by double-click) -->
     <div id="pickerPanel" class="notice d-none">
       <h2>Choose your photos folder</h2>
       <p id="pickerReason" class="text-secondary"></p>
-      <p class="text-secondary mb-4">Select the folder that holds the photos and the page will read every image in it.</p>
+      <p class="text-secondary mb-4">Select the folder that holds the photos or choose image files directly.</p>
       <label class="btn btn-ink px-4 py-2">
         Choose folder
         <input type="file" id="folderInput" webkitdirectory directory multiple hidden>
@@ -171,24 +171,19 @@
 
   const fold = s => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
-  // Read the folder through the web server's directory listing
-  async function loadFromFolderListing() {
-    const folderUrl = new URL(PHOTO_FOLDER, location.href);
-    const res = await fetch(folderUrl, { cache: "no-store" });
-    if (!res.ok) throw new Error("listing " + res.status);
-    const doc = new DOMParser().parseFromString(await res.text(), "text/html");
-    const found = new Map();
-    doc.querySelectorAll("a[href]").forEach(a => {
-      const href = a.getAttribute("href");
-      if (!href || href.startsWith("?") || href.startsWith("#")) return;
-      const url = new URL(href, folderUrl);
-      if (!url.href.startsWith(folderUrl.href)) return;
-      let file;
-      try { file = decodeURIComponent(url.pathname.split("/").pop()); } catch { return; }
-      const info = parseFileName(file);
-      if (info && !found.has(url.href)) found.set(url.href, { ...info, src: url.href });
+  // Load photo names from the manifest instead of relying on a server directory listing.
+  async function loadFromManifest() {
+    const manifestUrl = new URL(PHOTO_FOLDER + "images.json", location.href);
+    const res = await fetch(manifestUrl, { cache: "no-store" });
+    if (!res.ok) throw new Error("request failed with status " + res.status);
+    const files = await res.json();
+    if (!Array.isArray(files)) throw new Error("the manifest must contain a JSON array of filenames");
+    return files.flatMap(fileName => {
+      if (typeof fileName !== "string" || fileName !== fileName.split(/[\\/]/).pop()) return [];
+      const info = parseFileName(fileName);
+      if (!info) return [];
+      return [{ ...info, src: new URL(encodeURIComponent(fileName), manifestUrl).href }];
     });
-    return [...found.values()];
   }
 
   // Fallback: files chosen with the folder picker
@@ -286,11 +281,11 @@
 
   (async () => {
     try {
-      const list = await loadFromFolderListing();
+      const list = await loadFromManifest();
       if (list.length) setPeople(list);
-      else showPicker(`The "${PHOTO_FOLDER}" folder was found, but no photos named like Name_Othername-Country.jpg were listed in it.`);
-    } catch {
-      showPicker(`The browser couldn't read the "${PHOTO_FOLDER}" folder on its own. This happens when the page is opened directly from disk instead of through a local web server.`);
+      else showPicker(`No supported photo filenames were found in "${PHOTO_FOLDER}images.json".`);
+    } catch (error) {
+      showPicker(`Couldn't load "${PHOTO_FOLDER}images.json": ${error.message}. Run this page through a web server, or choose the photo files manually.`);
     }
   })();
   </script>
