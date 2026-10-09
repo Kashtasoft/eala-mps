@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EALA MPs Photo Directory by Country</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Instrument+Serif&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --ink: #1d2a44;
+      --ink-soft: #55607a;
+      --paper: #f2f4f7;
+      --card: #ffffff;
+      --line: #d9dee7;
+      --gold: #b9862b;
+      --sans: "Instrument Sans", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --serif: "Instrument Serif", Georgia, "Times New Roman", serif;
+    }
+    body { background: var(--paper); color: var(--ink); font-family: var(--sans); }
+
+    /* Header */
+    .topbar {
+      background: var(--ink); color: #fff;
+      position: sticky; top: 0; z-index: 1020;
+      box-shadow: 0 2px 0 var(--gold);
+    }
+    .topbar h1 { font-family: var(--serif); font-weight: 400; font-size: 1.9rem; margin: 0; letter-spacing: .01em; }
+    .topbar .summary { color: #b9c2d6; font-size: .9rem; }
+    .topbar .form-control, .topbar .form-select {
+      border: 0; border-radius: .5rem; padding-top: .6rem; padding-bottom: .6rem;
+    }
+    .topbar .form-control:focus, .topbar .form-select:focus { box-shadow: 0 0 0 3px var(--gold); }
+    @media (max-width: 767.98px) { .topbar { position: static; } .country { scroll-margin-top: 0; } }
+    .search-wrap { position: relative; }
+    .search-wrap svg { position: absolute; left: .85rem; top: 50%; transform: translateY(-50%); color: var(--ink-soft); pointer-events: none; }
+    .search-wrap .form-control { padding-left: 2.5rem; }
+
+    /* Country sections */
+    .country { scroll-margin-top: 150px; }
+    .country + .country { margin-top: 3rem; }
+    .country-head {
+      display: flex; align-items: baseline; gap: .9rem;
+      border-bottom: 1px solid var(--line); padding-bottom: .5rem; margin-bottom: 1.25rem;
+    }
+    .country-head h2 { font-family: var(--serif); font-weight: 400; font-size: clamp(2rem, 4vw, 2.75rem); line-height: 1; margin: 0; }
+    .country-head .count { color: var(--ink-soft); font-size: .95rem; }
+
+    /* Person tiles */
+    .person {
+      background: var(--card); border: 1px solid var(--line); border-radius: .6rem;
+      overflow: hidden; height: 100%; width: 100%; padding: 0; text-align: left; color: inherit;
+      display: flex; flex-direction: column;
+    }
+    .person:hover { border-color: var(--ink-soft); }
+    .person:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+    .person .photo { aspect-ratio: 4 / 5; background: #e6e9ef; overflow: hidden; }
+    .person img { width: 100%; height: 100%; object-fit: cover; object-position: center 20%; display: block; }
+    .person .initials {
+      width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+      font-family: var(--serif); font-size: 3rem; color: var(--ink-soft);
+    }
+    .person .name { padding: .7rem .8rem .8rem; font-weight: 500; font-size: .95rem; line-height: 1.3; }
+
+    /* Empty / load states */
+    .notice { max-width: 40rem; margin: 3rem auto; background: var(--card); border: 1px solid var(--line); border-radius: .75rem; padding: 2rem; }
+    .notice h2 { font-family: var(--serif); font-weight: 400; font-size: 2rem; }
+    .btn-ink { background: var(--ink); color: #fff; border: 0; }
+    .btn-ink:hover, .btn-ink:focus { background: #2c3c5e; color: #fff; }
+
+    .modal-content { border: 0; border-radius: .75rem; overflow: hidden; }
+    .modal-body img { width: 100%; max-height: 75vh; object-fit: contain; background: #e6e9ef; }
+    .modal-title { font-family: var(--serif); font-weight: 400; font-size: 1.7rem; }
+  </style>
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="container py-3">
+      <div class="row g-3 align-items-center">
+        <div class="col-lg-4">
+          <h1>EALA MPs Photo Directory</h1>
+          <div class="summary" id="summary">Loading photos…</div>
+        </div>
+        <div class="col-md-8 col-lg-5">
+          <label for="search" class="visually-hidden">Search by name</label>
+          <div class="search-wrap">
+            <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.868-3.834zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/></svg>
+            <input type="search" id="search" class="form-control" placeholder="Search by name" autocomplete="off">
+          </div>
+        </div>
+        <div class="col-md-4 col-lg-3">
+          <label for="countryFilter" class="visually-hidden">Filter by country</label>
+          <select id="countryFilter" class="form-select">
+            <option value="">All countries</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="container py-4">
+    <!-- Shown when the folder can't be read automatically (e.g. opened by double-click) -->
+    <div id="pickerPanel" class="notice d-none">
+      <h2>Choose your photos folder</h2>
+      <p id="pickerReason" class="text-secondary"></p>
+      <p class="text-secondary mb-4">Select the folder that holds the photos and the page will read every image in it.</p>
+      <label class="btn btn-ink px-4 py-2">
+        Choose folder
+        <input type="file" id="folderInput" webkitdirectory directory multiple hidden>
+      </label>
+      <label class="btn btn-outline-secondary px-4 py-2 ms-2">
+        Choose files
+        <input type="file" id="filesInput" accept="image/*" multiple hidden>
+      </label>
+    </div>
+
+    <div id="noResults" class="notice text-center d-none">
+      <h2>No matching names</h2>
+      <p class="text-secondary mb-3">Try part of a first or last name, or clear the search.</p>
+      <button class="btn btn-ink px-4" id="clearSearch">Clear search</button>
+    </div>
+
+    <div id="gallery"></div>
+  </main>
+
+  <!-- Enlarged photo -->
+  <div class="modal fade" id="photoModal" tabindex="-1" aria-labelledby="modalName" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-body p-0"><img id="modalImg" alt=""></div>
+        <div class="modal-footer justify-content-between">
+          <div>
+            <div class="modal-title" id="modalName"></div>
+            <div class="text-secondary" id="modalCountry"></div>
+          </div>
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+  /* ================= SETTINGS ================= */
+  const PHOTO_FOLDER = "photos/";                       // folder next to this page
+  const EXTENSIONS   = ["jpg", "jpeg", "png", "webp", "gif"];
+  /* ============================================ */
+
+  let people = [];
+
+  // "Boulu_Ipenda_Désiré-DRC.jpeg" -> { name: "Boulu Ipenda Désiré", country: "DRC" }
+  function parseFileName(fileName) {
+    const dot = fileName.lastIndexOf(".");
+    if (dot < 0) return null;
+    const ext = fileName.slice(dot + 1).toLowerCase();
+    if (!EXTENSIONS.includes(ext)) return null;
+    const base = fileName.slice(0, dot);
+    const dash = base.lastIndexOf("-");               // last dash, so hyphenated names survive
+    if (dash <= 0) return null;
+    const tidy = s => s.replace(/_/g, " ").replace(/\s+/g, " ").trim();
+    const name = tidy(base.slice(0, dash));
+    const country = tidy(base.slice(dash + 1));
+    if (!name || !country) return null;
+    return { name, country };
+  }
+
+  const fold = s => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+  // Read the folder through the web server's directory listing
+  async function loadFromFolderListing() {
+    const folderUrl = new URL(PHOTO_FOLDER, location.href);
+    const res = await fetch(folderUrl, { cache: "no-store" });
+    if (!res.ok) throw new Error("listing " + res.status);
+    const doc = new DOMParser().parseFromString(await res.text(), "text/html");
+    const found = new Map();
+    doc.querySelectorAll("a[href]").forEach(a => {
+      const href = a.getAttribute("href");
+      if (!href || href.startsWith("?") || href.startsWith("#")) return;
+      const url = new URL(href, folderUrl);
+      if (!url.href.startsWith(folderUrl.href)) return;
+      let file;
+      try { file = decodeURIComponent(url.pathname.split("/").pop()); } catch { return; }
+      const info = parseFileName(file);
+      if (info && !found.has(url.href)) found.set(url.href, { ...info, src: url.href });
+    });
+    return [...found.values()];
+  }
+
+  // Fallback: files chosen with the folder picker
+  function loadFromFiles(fileList) {
+    return [...fileList]
+      .map(f => { const info = parseFileName(f.name); return info && { ...info, src: URL.createObjectURL(f) }; })
+      .filter(Boolean);
+  }
+
+  function initials(name) {
+    const parts = name.split(" ");
+    return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase();
+  }
+
+  function setPeople(list) {
+    people = list.map(p => ({ ...p, key: fold(p.name) }))
+                 .sort((a, b) => a.country.localeCompare(b.country) || a.name.localeCompare(b.name));
+    const countries = [...new Set(people.map(p => p.country))];
+    const select = document.getElementById("countryFilter");
+    select.length = 1;
+    countries.forEach(c => select.add(new Option(c, c)));
+    document.getElementById("pickerPanel").classList.add("d-none");
+    render();
+  }
+
+  function render() {
+    const terms = fold(document.getElementById("search").value).split(/\s+/).filter(Boolean);
+    const country = document.getElementById("countryFilter").value;
+    const shown = people.filter(p =>
+      (!country || p.country === country) && terms.every(t => p.key.includes(t)));
+
+    const groups = new Map();
+    shown.forEach(p => { if (!groups.has(p.country)) groups.set(p.country, []); groups.get(p.country).push(p); });
+
+    const gallery = document.getElementById("gallery");
+    gallery.replaceChildren();
+    groups.forEach((list, c) => {
+      const section = document.createElement("section");
+      section.className = "country";
+      section.innerHTML = `<div class="country-head"><h2></h2><span class="count"></span></div>
+                           <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-xl-6 g-3"></div>`;
+      section.querySelector("h2").textContent = c;
+      section.querySelector(".count").textContent = list.length + (list.length === 1 ? " MP" : " MPs");
+      const row = section.querySelector(".row");
+      list.forEach(p => {
+        const col = document.createElement("div");
+        col.className = "col";
+        col.innerHTML = `<button type="button" class="person"><div class="photo"><img loading="lazy" alt=""></div><div class="name"></div></button>`;
+        const img = col.querySelector("img");
+        img.src = p.src;
+        img.alt = p.name;
+        img.onerror = () => { img.parentElement.innerHTML = `<div class="initials">${initials(p.name)}</div>`; };
+        col.querySelector(".name").textContent = p.name;
+        col.querySelector("button").addEventListener("click", () => openPhoto(p));
+        row.appendChild(col);
+      });
+      gallery.appendChild(section);
+    });
+
+    const total = people.length, nCountries = new Set(people.map(p => p.country)).size;
+    document.getElementById("summary").textContent = shown.length === total
+      ? `${total} MPs from ${nCountries} ${nCountries === 1 ? "country" : "countries"}`
+      : `Showing ${shown.length} of ${total} MPs`;
+    document.getElementById("noResults").classList.toggle("d-none", shown.length > 0 || total === 0);
+  }
+
+  function openPhoto(p) {
+    if (!window.bootstrap) { window.open(p.src, "_blank"); return; }
+    document.getElementById("modalImg").src = p.src;
+    document.getElementById("modalImg").alt = p.name;
+    document.getElementById("modalName").textContent = p.name;
+    document.getElementById("modalCountry").textContent = p.country;
+    bootstrap.Modal.getOrCreateInstance(document.getElementById("photoModal")).show();
+  }
+
+  function showPicker(reason) {
+    document.getElementById("pickerReason").textContent = reason;
+    document.getElementById("pickerPanel").classList.remove("d-none");
+    document.getElementById("summary").textContent = "No photos loaded yet";
+  }
+
+  document.getElementById("search").addEventListener("input", render);
+  document.getElementById("countryFilter").addEventListener("change", render);
+  document.getElementById("clearSearch").addEventListener("click", () => {
+    document.getElementById("search").value = "";
+    document.getElementById("countryFilter").value = "";
+    render();
+    document.getElementById("search").focus();
+  });
+  ["folderInput", "filesInput"].forEach(id =>
+    document.getElementById(id).addEventListener("change", e => {
+      const list = loadFromFiles(e.target.files);
+      list.length ? setPeople(list) : showPicker("None of the selected files follow the Name_Othername-Country.jpg pattern.");
+    }));
+
+  (async () => {
+    try {
+      const list = await loadFromFolderListing();
+      if (list.length) setPeople(list);
+      else showPicker(`The "${PHOTO_FOLDER}" folder was found, but no photos named like Name_Othername-Country.jpg were listed in it.`);
+    } catch {
+      showPicker(`The browser couldn't read the "${PHOTO_FOLDER}" folder on its own. This happens when the page is opened directly from disk instead of through a local web server.`);
+    }
+  })();
+  </script>
+
+</body>
+</html>
